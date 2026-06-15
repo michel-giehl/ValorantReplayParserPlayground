@@ -463,7 +463,9 @@ public abstract class ReplayReader<T> where T : Replay, new()
             header.Changelist = archive.ReadUInt32();
         }
 
-        archive.SkipBytes(7);
+        // VALORANT specific byte skip
+        // TODO find out what this is
+        archive.SkipBytes(6);
         if (header.NetworkVersion >= NetworkVersionHistory.HISTORY_RECORDING_METADATA)
         {
             header.UE4Version = archive.ReadUInt32();
@@ -1668,10 +1670,10 @@ public abstract class ReplayReader<T> where T : Replay, new()
             return false;
         }
 
-        /*if (enablePropertyChecksum)
+        if (enablePropertyChecksum)
         {
             var doChecksum = archive.ReadBit();
-        } */
+        }
 
         _logger?.LogDebug("ReceiveProperties: group {}", group.PathName);
         exportGroup = _netFieldParser.CreateType(group.PathName);

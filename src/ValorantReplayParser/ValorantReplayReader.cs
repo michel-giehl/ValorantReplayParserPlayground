@@ -51,14 +51,14 @@ public class ValorantReplayReader(ILogger? logger = null, ParseMode parseMode = 
             seed ^= actorGuid.Value;
         }
 
-        var transformedPayload = ValorantSeededPayloadTransform.Apply(rawPayload, payloadBits, seed);
+        var transformedPayload = ValorantSeededPayloadTransform.Apply(rawPayload, payloadBits, seed, "release-12.11");
         var transformedReader = CreateReader(transformedPayload, payloadBits, archive);
         var transformedBunch = new DataBunch(bunch)
         {
             Archive = transformedReader,
         };
 
-        transformedReader.ReadBit();
+        // transformedReader.ReadBit();
 
         return base.ReceivedReplicatorBunch(transformedBunch, transformedReader, repObject, bHasRepLayout);
     }
@@ -68,7 +68,7 @@ public class ValorantReplayReader(ILogger? logger = null, ParseMode parseMode = 
 
         if (exportGroup is null)
         {
-            Console.WriteLine($"Chindex={channelIndex}\tGroup=null");
+            // Console.WriteLine($"Chindex={channelIndex}\tGroup=null");
             return;
         }
         var type = exportGroup.GetType();
@@ -126,4 +126,5 @@ public class ValorantReplayReader(ILogger? logger = null, ParseMode parseMode = 
         var output = Oodle.DecompressReplayData(archive.ReadBytes(cs), ds);
         return new BinaryReader(new MemoryStream(output.ToArray())) { EngineNetworkVersion = Replay.Header.EngineNetworkVersion, NetworkVersion = Replay.Header.NetworkVersion, ReplayHeaderFlags = Replay.Header.Flags, ReplayVersion = Replay.Info.FileVersion };
     }
+
 }

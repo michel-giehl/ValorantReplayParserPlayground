@@ -471,7 +471,7 @@ public class NetFieldParser
             }
         }
 
-        if (replayout == RepLayoutCmdType.Ignore)
+        if (!isGroupType && replayout == RepLayoutCmdType.Ignore)
         {
             return null;
         }
