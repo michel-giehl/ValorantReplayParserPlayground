@@ -10,10 +10,9 @@ namespace ValorantReplayParser;
 
 public class Program
 {
-    private const string IsolatedSampleReplay = "9f8b32c5-c243-41ec-bbbb-832582edf652";
-    private const string FullMatchReplay = "530afd78-cabd-4758-ba71-b27af2d06a74";
-    private const string FullMatchReplay1211 = "5d3cd25d-32cf-4a15-afe0-7ed94f752c75";
-    private static readonly string DefaultReplayPath = $@"C:\Users\michel\Desktop\replays\{FullMatchReplay1211}.vrf";
+    private const string IsolatedSampleReplay = "5c673443-5bdc-4576-b416-aab3f62471a5";
+    private const string FullMatchReplay = "5d3cd25d-32cf-4a15-afe0-7ed94f752c75";
+    private static readonly string DefaultReplayPath = $@"C:\Users\michel\Desktop\replays\{IsolatedSampleReplay}.vrf";
 
     public static int Main(string[] args)
     {
@@ -29,7 +28,7 @@ public class Program
                 builder.SetMinimumLevel(LogLevel.Information);
             });
             ILogger logger = loggerFactory.CreateLogger<ValorantReplayReader>();
-            var reader = new ValorantReplayReader(null, ParseMode.Debug);
+            var reader = new ValorantReplayReader(logger, ParseMode.Full);
 
             reader.ReadReplay(DefaultReplayPath);
             return 0;

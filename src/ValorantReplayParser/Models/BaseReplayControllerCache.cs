@@ -7,7 +7,7 @@ namespace ValorantReplayParser.Models;
 public class BaseReplayControllerCache
 {
     [NetFieldExportRPC("ClientReplayReceiveInputEventProcessingCapture",
-        "/Game/Characters/_Core/BaseReplayController.BaseReplayController_C:ClientReplayReceiveInputEventProcessingCapture",
+        "/Script/ShooterGame.ReplayPlayerController:ClientReplayReceiveInputEventProcessingCapture",
         isFunction: true)]
     public ClientReplayReceiveInputEventProcessingCapture? ClientReplayReceiveInputEventProcessingCapture { get; set; }
 

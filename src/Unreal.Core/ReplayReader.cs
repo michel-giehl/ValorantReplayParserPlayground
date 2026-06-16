@@ -1324,6 +1324,7 @@ public abstract class ReplayReader<T> where T : Replay, new()
         }
     }
 
+    private static HashSet<string> knownRPCs = new();
     /// <summary>
     /// see https://github.com/EpicGames/UnrealEngine/blob/bf95c2cbc703123e08ab54e3ceccdd47e48d224a/Engine/Source/Runtime/Engine/Private/DataReplication.cpp#L896
     /// </summary>
@@ -1401,6 +1402,11 @@ public abstract class ReplayReader<T> where T : Replay, new()
                     {
                         // Handle function call
                         var functionGroup = _netGuidCache.GetNetFieldExportGroup(classNetProperty.PathName);
+
+                        if (classNetProperty.PathName.Contains("ClientReplayReceiveInputEventProcessingCapture"))
+                        {
+                            Console.WriteLine("AY");
+                        }
                         if (!ReceivedRPC(archive, functionGroup, bunch.ChIndex))
                         {
                             return false;
