@@ -13,10 +13,13 @@ public class ComponentDataStream : IProperty
     private const double FixedVectorScale = 1.0 / 65536.0;
     private const double OptionalByteScale = 1.0;
     private const double AngleScale = 360.0 / 65536.0;
+    private const int MaxMovementPaddingBits = 31;
 
-    private bool HasMovementSection { get; set; }
-    private bool HasValidMovementMagic { get; set; }
-    private ushort MovementBitCount { get; set; }
+    public bool HasMovementSection { get; private set; }
+    public bool HasValidMovementMagic { get; private set; }
+    public ushort MovementBitCount { get; private set; }
+    public int TrailingComponentBitCount { get; private set; }
+    public string? MovementParseError { get; private set; }
     public List<MovementMove> Moves { get; } = [];
 
     public void Serialize(NetBitReader reader)
@@ -60,6 +63,8 @@ public class ComponentDataStream : IProperty
         if (movementBitCount > reader.GetBitsLeft())
         {
             reader.Pop();
+            HasMovementSection = true;
+            MovementBitCount = (ushort)Math.Min(reader.GetBitsLeft(), ushort.MaxValue);
             ParseMovementSection(reader);
             return;
         }
@@ -79,7 +84,8 @@ public class ComponentDataStream : IProperty
 
         if (reader.GetBitsLeft() > 0)
         {
-            reader.Seek(reader.GetBitsLeft(), SeekOrigin.Current);
+            TrailingComponentBitCount = reader.GetBitsLeft();
+            reader.Seek(TrailingComponentBitCount, SeekOrigin.Current);
         }
     }
 
@@ -102,18 +108,21 @@ public class ComponentDataStream : IProperty
     {
         if (!TryReadByte(reader, out var magic))
         {
+            MovementParseError = "Missing movement magic";
             return;
         }
 
         HasValidMovementMagic = magic == MovementMagic;
         if (!HasValidMovementMagic)
         {
+            MovementParseError = $"Invalid movement magic 0x{magic:X2}";
             return;
         }
 
         var expectedMarker = 1;
         if (!TryReadBits(reader, 3, out var marker))
         {
+            MovementParseError = "Missing first movement marker";
             return;
         }
 
@@ -121,43 +130,58 @@ public class ComponentDataStream : IProperty
         {
             if (marker != expectedMarker)
             {
+                MovementParseError = $"Movement marker mismatch: expected {expectedMarker}, got {marker}";
                 return;
             }
 
-            if (!TryReadMove(reader, out var move))
+            if (!TryReadMove(reader, marker, out var move, out var error))
             {
+                MovementParseError = error ?? "Invalid movement record";
                 return;
             }
 
             Moves.Add(move);
 
+            if (reader.GetBitsLeft() <= MaxMovementPaddingBits)
+            {
+                return;
+            }
+
             expectedMarker = NextMarker(expectedMarker);
             if (!TryReadBits(reader, 3, out marker))
             {
+                MovementParseError = "Missing next movement marker";
                 return;
             }
         }
     }
 
-    private static bool TryReadMove(NetBitReader reader, out MovementMove move)
+    private static bool TryReadMove(NetBitReader reader, int marker, out MovementMove move, out string? error)
     {
         move = new MovementMove();
+        error = null;
 
         if (!TryReadBit(reader, out var moveType) ||
             !TryReadByte(reader, out var rotationYawMultiplier) ||
             !TryReadByte(reader, out var movementState) ||
-            !TryReadByte(reader, out _))
+            !TryReadByte(reader, out var unusedByte))
         {
+            error = "Missing movement record header";
             return false;
         }
 
+        move.Marker = marker;
+        move.MoveType = moveType ? (byte)1 : (byte)0;
         move.RotationYawMultiplier = unchecked((sbyte)rotationYawMultiplier);
+        move.ModeFlags = movementState;
         move.MovementState = movementState;
+        move.UnusedByte = unusedByte;
 
         if (!TryReadFixedVector(reader, out var rotationInput) ||
             !TryReadVLQ(reader, out var timestamp) ||
-            !TryReadPackedVector(reader, 100, 30, out var position))
+            !TryReadQuantizedVector(reader, 100, out var position))
         {
+            error = "Missing movement common vector/timestamp fields";
             return false;
         }
 
@@ -167,68 +191,101 @@ public class ComponentDataStream : IProperty
 
         if (!TryReadBit(reader, out var hasOptionalByte))
         {
+            error = "Missing optional movement value flag";
             return false;
         }
 
+        move.HasOptionalMovementValue = hasOptionalByte;
         if (hasOptionalByte)
         {
             if (!TryReadByte(reader, out var optionalByte))
             {
+                error = "Missing optional movement value";
                 return false;
             }
 
+            move.OptionalMovementRawByte = optionalByte;
             move.OptionalMovementValue = optionalByte * OptionalByteScale;
         }
 
-        if (!TryReadBit(reader, out _) ||
-            !TryReadUInt16(reader, out var yaw) ||
-            !TryReadUInt16(reader, out var pitch))
+        if (!TryReadBit(reader, out var flag48))
         {
+            error = "Missing movement flag/angle fields";
             return false;
         }
 
+        if (!TryReadUInt32(reader, out var packedAngles))
+        {
+            error = "Missing movement flag/angle fields";
+            return false;
+        }
+
+        var pitch = (ushort)(packedAngles & 0xFFFF);
+        var yaw = (ushort)(packedAngles >> 16);
+        move.Flag48 = flag48;
+        move.PackedAngles = packedAngles;
+        move.RawYaw = yaw;
+        move.RawPitch = pitch;
         move.Yaw = yaw * AngleScale;
         move.Pitch = pitch * AngleScale;
 
         if (moveType)
         {
-            if (!TryReadBit(reader, out _) ||
-                !TryReadPackedVector(reader, 10, 24, out var velocity))
+            if (!TryReadBit(reader, out var variant1Flag) ||
+                !TryReadQuantizedVector(reader, 10, out var variant1Vector))
             {
+                error = "Missing variant-1 movement fields";
                 return false;
             }
 
-            move.Velocity = velocity;
+            move.Variant1Flag = variant1Flag;
+            move.Variant1Vector = variant1Vector;
+            move.Velocity = variant1Vector;
         }
-        else if (!TrySkipVariant0Extra(reader))
+        else if (!TryReadVariant0Extra(reader, move, out error))
         {
             return false;
         }
 
         if (!TryReadBit(reader, out var errorSentinel))
         {
+            error = "Missing movement error sentinel";
             return false;
+        }
+
+        move.ErrorSentinel = errorSentinel;
+        if (errorSentinel)
+        {
+            error = "Movement error sentinel was set";
         }
 
         return !errorSentinel;
     }
 
-    private static bool TrySkipVariant0Extra(NetBitReader reader)
+    private static bool TryReadVariant0Extra(NetBitReader reader, MovementMove move, out string? error)
     {
+        error = null;
         if (!TryReadBit(reader, out var hasExternalCharacterRef))
         {
+            error = "Missing variant-0 external reference flag";
             return false;
         }
 
+        move.Variant0HasExternalCharacterRef = hasExternalCharacterRef;
         if (hasExternalCharacterRef)
         {
-            // The external character reference payload is still unidentified. Stop before
-            // corrupting alignment for following moves.
-            reader.Seek(reader.GetBitsLeft(), SeekOrigin.Current);
-            return true;
+            error = "Variant-0 external character reference is not decoded yet";
+            return false;
         }
 
-        return !reader.CanRead(32) || TryReadUInt32(reader, out _);
+        if (!TryReadUInt32(reader, out var packedAngles))
+        {
+            error = "Missing variant-0 packed angle dword";
+            return false;
+        }
+
+        move.Variant0PackedAngles = packedAngles;
+        return true;
     }
 
     private static bool TryReadFixedVector(NetBitReader reader, out FVector vector)
@@ -252,34 +309,75 @@ public class ComponentDataStream : IProperty
         return true;
     }
 
-    private static bool TryReadPackedVector(NetBitReader reader, int scaleFactor, int maxBits, out FVector vector)
+    private static bool TryReadQuantizedVector(NetBitReader reader, int scaleFactor, out FVector vector)
     {
         vector = new FVector(0, 0, 0)
         {
             ScaleFactor = scaleFactor,
         };
 
-        if (!TryReadSerializedInt(reader, maxBits, out var bits) || bits > 28)
+        if (!TryReadSerializedInt(reader, 1 << 7, out var componentBitCountAndExtraInfo))
         {
             return false;
         }
 
-        var componentBits = (int)bits;
-        var bias = 1 << (componentBits + 1);
-        var max = 1 << (componentBits + 2);
-
-        if (!TryReadSerializedInt(reader, max, out var x) ||
-            !TryReadSerializedInt(reader, max, out var y) ||
-            !TryReadSerializedInt(reader, max, out var z))
-        {
-            return false;
-        }
-
-        vector.X = ((int)x - bias) / (double)scaleFactor;
-        vector.Y = ((int)y - bias) / (double)scaleFactor;
-        vector.Z = ((int)z - bias) / (double)scaleFactor;
+        var componentBits = (int)(componentBitCountAndExtraInfo & 63U);
+        var extraInfo = componentBitCountAndExtraInfo >> 6;
         vector.Bits = componentBits;
-        return true;
+
+        if (componentBits > 0)
+        {
+            if (!TryReadSignedQuantizedComponent(reader, componentBits, out var x) ||
+                !TryReadSignedQuantizedComponent(reader, componentBits, out var y) ||
+                !TryReadSignedQuantizedComponent(reader, componentBits, out var z))
+            {
+                return false;
+            }
+
+            vector.X = extraInfo > 0 ? x / (double)scaleFactor : x;
+            vector.Y = extraInfo > 0 ? y / (double)scaleFactor : y;
+            vector.Z = extraInfo > 0 ? z / (double)scaleFactor : z;
+            return true;
+        }
+
+        if (extraInfo == 0)
+        {
+            if (!reader.CanRead(96))
+            {
+                return false;
+            }
+
+            vector.X = reader.ReadSingle();
+            vector.Y = reader.ReadSingle();
+            vector.Z = reader.ReadSingle();
+            vector.Bits = 32;
+            return !reader.IsError;
+        }
+
+        if (!reader.CanRead(192))
+        {
+            return false;
+        }
+
+        vector.X = reader.ReadDouble();
+        vector.Y = reader.ReadDouble();
+        vector.Z = reader.ReadDouble();
+        vector.Bits = 64;
+        return !reader.IsError;
+    }
+
+    private static bool TryReadSignedQuantizedComponent(NetBitReader reader, int componentBits, out long value)
+    {
+        value = 0;
+        if (componentBits <= 0 || componentBits > 62 || !reader.CanRead(componentBits))
+        {
+            return false;
+        }
+
+        var raw = reader.ReadBitsToLong(componentBits);
+        var signBit = 1UL << (componentBits - 1);
+        value = (long)(raw ^ signBit) - (long)signBit;
+        return !reader.IsError;
     }
 
     private static bool TryReadVLQ(NetBitReader reader, out uint value)
@@ -396,13 +494,28 @@ public class ComponentDataStream : IProperty
 
 public class MovementMove
 {
+    public int Marker { get; set; }
+    public byte MoveType { get; set; }
     public FVector? Position { get; set; }
     public FVector? Velocity { get; set; }
     public FVector? RotationInput { get; set; }
+    public FVector? Variant1Vector { get; set; }
     public uint Timestamp { get; set; }
+    public byte ModeFlags { get; set; }
     public byte MovementState { get; set; }
     public sbyte RotationYawMultiplier { get; set; }
+    public byte UnusedByte { get; set; }
+    public bool HasOptionalMovementValue { get; set; }
+    public byte? OptionalMovementRawByte { get; set; }
     public double? OptionalMovementValue { get; set; }
+    public bool Flag48 { get; set; }
+    public uint PackedAngles { get; set; }
+    public ushort RawYaw { get; set; }
+    public ushort RawPitch { get; set; }
     public double Yaw { get; set; }
     public double Pitch { get; set; }
+    public bool? Variant0HasExternalCharacterRef { get; set; }
+    public uint? Variant0PackedAngles { get; set; }
+    public bool? Variant1Flag { get; set; }
+    public bool ErrorSentinel { get; set; }
 }
