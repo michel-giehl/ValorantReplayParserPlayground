@@ -14,4 +14,12 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Replays\5c673443-5bdc-4576-b416-aab3f62471a5.vrf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Replays\c96127a8-f003-48db-a2cd-9c71de5aba15.vrf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

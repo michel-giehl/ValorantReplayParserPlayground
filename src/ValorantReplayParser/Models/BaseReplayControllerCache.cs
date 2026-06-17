@@ -3,7 +3,7 @@ using Unreal.Core.Models.Enums;
 
 namespace ValorantReplayParser.Models;
 
-[NetFieldExportClassNetCache("BaseReplayController_C_ClassNetCache", minimalParseMode: ParseMode.Normal)]
+[NetFieldExportClassNetCache("BaseReplayController_C_ClassNetCache", minimalParseMode: ParseMode.Full)]
 public class BaseReplayControllerCache
 {
     [NetFieldExportRPC("ClientReplayReceiveInputEventProcessingCapture",

@@ -464,8 +464,9 @@ public abstract class ReplayReader<T> where T : Replay, new()
         }
 
         // VALORANT specific byte skip
-        // TODO find out what this is
-        archive.SkipBytes(6);
+        var bytesToSkip = archive.ReadUInt32();
+        archive.SkipBytes(bytesToSkip);
+
         if (header.NetworkVersion >= NetworkVersionHistory.HISTORY_RECORDING_METADATA)
         {
             header.UE4Version = archive.ReadUInt32();
@@ -1403,10 +1404,6 @@ public abstract class ReplayReader<T> where T : Replay, new()
                         // Handle function call
                         var functionGroup = _netGuidCache.GetNetFieldExportGroup(classNetProperty.PathName);
 
-                        if (classNetProperty.PathName.Contains("ClientReplayReceiveInputEventProcessingCapture"))
-                        {
-                            Console.WriteLine("AY");
-                        }
                         if (!ReceivedRPC(archive, functionGroup, bunch.ChIndex))
                         {
                             return false;

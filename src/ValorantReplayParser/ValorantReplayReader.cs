@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -8,7 +7,6 @@ using Unreal.Core.Contracts;
 using Unreal.Core.Models;
 using Unreal.Core.Models.Enums;
 using Unreal.Encryption;
-using ValorantReplayParser.Models;
 using BinaryReader = Unreal.Core.BinaryReader;
 using EventInfo = Unreal.Core.Models.EventInfo;
 
@@ -34,7 +32,6 @@ public class ValorantReplayReader(ILogger? logger = null, ParseMode parseMode = 
         var info = new EventInfo { Id = archive.ReadFString(), Group = archive.ReadFString(), Metadata = archive.ReadFString(), StartTime = archive.ReadUInt32(), EndTime = archive.ReadUInt32(), SizeInBytes = archive.ReadInt32() };
         logger?.LogInformation("Event: t={T}ms group={G}", info.StartTime, info.Group);
     }
-
 
     public override bool ReceivedReplicatorBunch(DataBunch bunch, FBitArchive archive, uint? repObject, bool bHasRepLayout)
     {
@@ -68,7 +65,7 @@ public class ValorantReplayReader(ILogger? logger = null, ParseMode parseMode = 
     protected override void OnExportRead(uint channelIndex, INetFieldExportGroup? exportGroup)
     {
 
-        if (exportGroup is null or ReplaysClientReceiveRemoteCharacterUpdatesSingleArrayNoAutonomous)
+        if (exportGroup is null)
         {
             // Console.WriteLine($"Chindex={channelIndex}\tGroup=null");
             return;
