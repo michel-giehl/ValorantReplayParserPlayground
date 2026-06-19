@@ -18,7 +18,7 @@
     <None Update="Replays\5c673443-5bdc-4576-b416-aab3f62471a5.vrf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Replays\c96127a8-f003-48db-a2cd-9c71de5aba15.vrf">
+    <None Update="Replays\9f8b32c5-c243-41ec-bbbb-832582edf652.vrf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
