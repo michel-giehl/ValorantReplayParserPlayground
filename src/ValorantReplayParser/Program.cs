@@ -18,7 +18,8 @@ public class Program
 
     private const string IsolatedSampleReplay1211 = "5c673443-5bdc-4576-b416-aab3f62471a5";
     private const string IsolatedSampleReplay1210 = "9f8b32c5-c243-41ec-bbbb-832582edf652";
-    private static readonly string DefaultReplayPath = $"C:\\Users\\michel\\Desktop\\replays\\5d3cd25d-32cf-4a15-afe0-7ed94f752c75.vrf";
+    private static readonly string DefaultReplayPath = Path.Combine("Replays", IsolatedSampleReplay1211 + ".vrf");
+    private static readonly string ReplayVersion = "12.11";
 
     public static int Main(string[] args)
     {
@@ -34,7 +35,7 @@ public class Program
             });
 
             ILogger logger = loggerFactory.CreateLogger<ValorantReplayReader>();
-            var reader = new ValorantReplayReader(LoggerEnabled ? logger : null, ParseMode);
+            var reader = new ValorantReplayReader(ReplayVersion, LoggerEnabled ? logger : null, ParseMode);
 
             var replay = reader.ReadReplay(DefaultReplayPath);
 

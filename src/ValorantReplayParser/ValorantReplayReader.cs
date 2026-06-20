@@ -13,9 +13,10 @@ using EventInfo = Unreal.Core.Models.EventInfo;
 
 namespace ValorantReplayParser;
 
-public class ValorantReplayReader(ILogger? logger = null, ParseMode parseMode = ParseMode.Minimal)
+public class ValorantReplayReader(string version, ILogger? logger = null, ParseMode parseMode = ParseMode.Minimal)
     : ReplayReader<ValorantReplay>(logger ?? NullLogger.Instance, parseMode)
 {
+    private string Version = version;
     public ValorantReplay ReadReplay(string fileName)
     {
         using var stream = File.OpenRead(fileName);
@@ -50,7 +51,7 @@ public class ValorantReplayReader(ILogger? logger = null, ParseMode parseMode = 
             seed ^= actorGuid.Value;
         }
 
-        var transformedPayload = ValorantSeededPayloadTransform.Apply(rawPayload, payloadBits, seed, "release-12.11");
+        var transformedPayload = ValorantSeededPayloadTransform.Apply(rawPayload, payloadBits, seed, "release-" + version);
         var transformedReader = CreateReader(transformedPayload, payloadBits, archive);
         var transformedBunch = new DataBunch(bunch)
         {
