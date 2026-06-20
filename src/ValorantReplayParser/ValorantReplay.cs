@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Unreal.Core.Models;
 using ValorantReplayParser.Models;
 

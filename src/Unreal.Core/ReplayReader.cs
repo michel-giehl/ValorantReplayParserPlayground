@@ -1273,6 +1273,11 @@ public abstract class ReplayReader<T> where T : Replay, new()
             // see https://github.com/EpicGames/UnrealEngine/blob/6c20d9831a968ad3cb156442bebb41a883e62152/Engine/Source/Runtime/Engine/Private/PlayerController.cpp#L1338
             if (_netGuidCache.TryGetPathName(channel.ArchetypeId ?? 0, out var path))
             {
+                Console.WriteLine($"SerializeNewActor: {channel.Actor.Location} | path={path} | ChannelIndex={channel.ChannelIndex} ChName={channel.ChannelName}");
+                if (path == "GameObject_Gumshoe_E_TripWire_C")
+                {
+
+                }
                 if (_netFieldParser.PlayerControllerGroups.Contains(path))
                 {
                     // netPlayerIndex
