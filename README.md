@@ -1,3 +1,6 @@
+# ⚠ Archived
+This project is archived and will not be maintained. Consider using [ValorantReplayParser](https://github.com/michel-giehl/ValorantReplayParser) instead.
+
 # Proof of concept for a VALORANT replay parser
 
 Please dont use this in any real project. This is just for research
